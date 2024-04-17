@@ -188,7 +188,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
     {
-      $unset: { refreshToken: 1 },  // flag value 1 removes the field from the document
+      $unset: { refreshToken: 1 }, // flag value 1 removes the field from the document
     },
     {
       new: true,
@@ -306,6 +306,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
   const avatarLocalPath = req.file?.path;
+  console.log(avatarLocalPath);
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is missing");
@@ -328,7 +329,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   ).select("-password");
 
   // delete old avatar
-  // fs.unlinkSync(avatarLocalPath)
+  fs.unlinkSync(avatarLocalPath);
 
   return res
     .status(200)
