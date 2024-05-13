@@ -1,6 +1,6 @@
 import express from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { toggleCommentLike, toggleTweetLike, toggleVideoLike } from "../controllers/like.controller";
+import { toggleCommentLike, toggleTweetLike, toggleVideoLike } from "../controllers/like.controller.js";
 
 const router = express.Router();
 
