@@ -8,7 +8,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
-  const { videoId } = req.body.params;
+  const { videoId } = req.params;
 
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid Video Id");
@@ -119,4 +119,22 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
   }
 });
 
-export { toggleVideoLike, toggleCommentLike, toggleTweetLike };
+const getLikedVideos = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  if (!isValidObjectId(userId)) {
+    throw new ApiError(400, "Invalid User Id");
+  }
+
+  const likedVideos = await Like.find({ likedBy: userId, video: { $ne: null } }) // returns records where video field is not null 
+
+  if (!likedVideos || likedVideos.length === 0) {
+    throw new ApiError(404, "User has not liked any video");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, likedVideos, "Liked Videos fetched successfully"))
+})
+
+export { toggleVideoLike, getLikedVideos, toggleCommentLike, toggleTweetLike };

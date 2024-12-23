@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Comment } from "../models/comment.model.js";
+import { Like } from "../models/like.model.js";
 import { Video } from "../models/video.model.js";
 import mongoose, { isValidObjectId } from "mongoose";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -38,6 +39,43 @@ const addComment = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, newComment, "Comment created successfully"));
 });
 
+const getAllCommentsOnVideo = asyncHandler(async (req, res) => {
+  const { videoId } = req.params
+
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid Video Id")
+  }
+
+  const comments = await Comment.find({ video: videoId })
+
+  if (!comments || comments.length === 0) {
+    throw new ApiError(404, "No Comments found")
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, comments, "Comments fetched successfully"))
+})
+
+// all the comments of a particular user
+const getUserComments = asyncHandler(async (req, res) => {
+  const { userId } = req.params
+
+  if (!isValidObjectId(userId)) {
+    throw new ApiError(400, "Invalid User Id")
+  }
+
+  const comments = await Comment.find({ owner: userId })
+
+  if (!comments || comments.length === 0) {
+    throw new ApiError(404, "No Comments found")
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, comments, "Comments fetched successfully"))
+})
+
 const updateComment = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
   const { content } = req.body;
@@ -74,7 +112,7 @@ const updateComment = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, updateComment, "Comment updated successfully"));
+    .json(new ApiResponse(200, updatedComment, "Comment updated successfully"));
 });
 
 const deleteComment = asyncHandler(async (req, res) => {
@@ -84,7 +122,7 @@ const deleteComment = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid Comment id");
   }
 
-  const comment = await findById(commentId);
+  const comment = await Comment.findById(commentId);
   if (!comment) {
     throw new ApiError(404, "Comment not found");
   }
@@ -104,4 +142,4 @@ const deleteComment = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Comment deleted successfully"));
 });
 
-export { addComment, updateComment, deleteComment };
+export { addComment, getAllCommentsOnVideo, getUserComments, updateComment, deleteComment };

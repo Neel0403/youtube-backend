@@ -1,10 +1,11 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import fs from "fs";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -64,20 +65,20 @@ const registerUser = asyncHandler(async (req, res) => {
   if (existedUser) {
     throw new ApiError(409, "User with this email or username already exists");
   }
-  console.log(req.files);
+  console.warn(req.files);
 
   // STEP 4
-  const avatarLocalPath = req.files?.avatar[0]?.path;
-  // const coverImageLocalPath = req.files?.coverImage[0]?.path
+  const avatarLocalPath = req.files?.avatar?.[0]?.path;
+  const coverImageLocalPath = req.files?.coverImage?.[0]?.path
 
-  let coverImageLocalPath;
-  if (
-    req.files &&
-    Array.isArray(req.files.coverImage) &&
-    req.files.coverImage.length > 0
-  ) {
-    coverImageLocalPath = req.files.coverImage[0].path;
-  }
+  // let coverImageLocalPath;
+  // if (
+  //   req.files &&
+  //   Array.isArray(req.files.coverImage) &&
+  //   req.files.coverImage.length > 0
+  // ) {
+  //   coverImageLocalPath = req.files.coverImage[0].path;
+  // }
 
   console.log("avatar file path: ", avatarLocalPath);
   console.log("cover image file path: ", coverImageLocalPath);
@@ -91,32 +92,64 @@ const registerUser = asyncHandler(async (req, res) => {
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!avatar) {
-    throw new ApiError(400, "Avatar file is required");
+    throw new ApiError(400, "Avatar upload on cloudinary failed");
   }
+
+  // let avatar
+  // try {
+  //   avatar = await uploadOnCloudinary(avatarLocalPath);
+  //   console.log("Uploaded avatar", avatar);
+  // } catch (error) {
+  //   console.log("Error uploading avatar", error);
+  //   throw new ApiError(500, "Failed to upload avatar");
+  // }
+
+  // let coverImage
+  // try {
+  //   coverImage = await uploadOnCloudinary(coverImageLocalPath);
+  //   console.log("Uploaded cover image", coverImage);
+  // } catch (error) {
+  //   console.log("Error uploading cover image", error);
+  //   throw new ApiError(500, "Failed to upload cover image");
+  // }
 
   // STEP 6
-  const user = await User.create({
-    fullName,
-    avatar: avatar.url,
-    coverImage: coverImage?.url || "",
-    email,
-    password,
-    username: username.toLowerCase(),
-  });
+  try {
+    const user = await User.create({
+      fullName,
+      avatar: avatar.url,
+      coverImage: coverImage?.url || "",
+      email,
+      password,
+      username: username.toLowerCase(),
+    });
 
-  // STEP 7
-  const createdUser = await User.findById(user._id).select(
-    "-password -refreshToken" // password and refreshToken file won't be returned
-  );
+    // STEP 7
+    const createdUser = await User.findById(user._id).select(
+      "-password -refreshToken" // password and refreshToken file won't be returned
+    );
 
-  if (!createdUser) {
-    throw new ApiError(500, "Something went wrong while registering the user");
+    if (!createdUser) {
+      throw new ApiError(500, "Something went wrong while registering the user");
+    }
+
+    // STEP 8
+    return res
+      .status(201)
+      .json(new ApiResponse(200, createdUser, "User registered successfully"));
+  } catch (error) {
+    console.log("User creation failed");
+
+    if (avatar) {
+      await deleteFromCloudinary(avatar.public_id);
+    }
+
+    if (coverImage) {
+      await deleteFromCloudinary(coverImage.public_id);
+    }
+
+    throw new ApiError(500, "Something went wrong while registering the user and images were deleted")
   }
-
-  // STEP 8
-  return res
-    .status(201)
-    .json(new ApiResponse(200, createdUser, "User registered successfully"));
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -129,6 +162,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   // STEP 1
   const { username, email, password } = req.body;
+  console.log(req.body);
 
   // STEP 2,3
   if (!(username || email)) {
@@ -174,7 +208,7 @@ const loginUser = asyncHandler(async (req, res) => {
       new ApiResponse(
         200, // status code
         {
-          User: loggedInUser,
+          user: loggedInUser,
           accessToken,
           refreshToken, // data
         },
@@ -203,15 +237,14 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .clearCookie(accessToken, options)
-    .clearCookie(refreshToken, options)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, {}, "User logged out"));
 });
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   // incoming refresh token is sent by user
-  const incomingRefreshToken =
-    req.cookies.refreshToken || req.body.refreshToken;
+  const incomingRefreshToken = req.cookies?.refreshToken || req.body.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(401, "Unauthorised request");
@@ -243,8 +276,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .cookie("accessToken", accessToken)
-      .cookie("refreshToken", newrefreshToken)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newrefreshToken, options)
       .json(
         new ApiResponse(
           200,
@@ -284,8 +317,8 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 const updateAccountDetails = asyncHandler(async (req, res) => {
   const { fullName, email } = req.body;
 
-  if (!fullName || !email) {
-    throw new ApiError(400, "All fields are required");
+  if (!fullName && !email) {
+    throw new ApiError(400, "At least one field is required");
   }
 
   const user = await User.findByIdAndUpdate(
@@ -306,7 +339,9 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
   const avatarLocalPath = req.file?.path;
-  console.log(avatarLocalPath);
+  console.log(req)
+  console.log(req.user)
+  console.log("Avatar file path: ", avatarLocalPath);
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is missing");

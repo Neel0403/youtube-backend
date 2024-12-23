@@ -20,8 +20,9 @@ const createTweet = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Error ocurred while creating the tweet");
   }
 
-  res.status(200),
-    json(new ApiResponse(200, newTweet, "Tweet created successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, newTweet, "Tweet created successfully"));
 });
 
 const getTweet = asyncHandler(async (req, res) => {
@@ -37,7 +38,11 @@ const getTweet = asyncHandler(async (req, res) => {
     throw new ApiError(400, "User has no tweets");
   }
 
-  res
+  if(userTweets.length===0){
+    return res.status(204).send()
+  }
+
+  return res
     .status(200)
     .json(new ApiResponse(200, userTweets, "Tweets retrieved successfully"));
 });
@@ -66,7 +71,7 @@ const updateTweet = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Tweet could not be updated");
   }
 
-  res
+  return res
     .status(200)
     .json(new ApiResponse(200, updatedTweet, "Tweet updated successfully!!"));
 });
@@ -84,7 +89,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Tweet could not be deleted");
   }
 
-  res
+  return res
     .status(200)
     .json(new ApiResponse(200, deletedTweet, "Tweet Deleted Successfully"));
 });

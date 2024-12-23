@@ -46,8 +46,7 @@ const userSchema = new mongoose.Schema({
     }
 }, { timestamps: true })
 
-
-// encrypting the password using bcrypt library
+// ENCRYPTING THE PASSWORD USING BCRYPT LIBRARY
 
 // callback not used bcoz it doesnt give access to "this" keyword, hence context is not defined
 userSchema.pre("save", async function (next) {
@@ -72,9 +71,11 @@ userSchema.methods.generateAccessToken = function () {
             username: this.username,
             fullName: this.fullName
         },
-        process.env.ACCESS_TOKEN_SECRET,
+        // process.env.ACCESS_TOKEN_SECRET,
+        "neeloza",
         {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+            // expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+            expiresIn: "1d"
         }
     )
 }
@@ -83,9 +84,11 @@ userSchema.methods.generateRefreshToken = function () {
         {
             _id: this._id,
         },
-        process.env.REFRESH_TOKEN_SECRET,
+        // process.env.REFRESH_TOKEN_SECRET,
+        "neeloza",
         {
-            expiresIn: REFRESH_TOKEN_EXPIRY
+            // expiresIn: REFRESH_TOKEN_EXPIRY
+            expiresIn: "10d"
         }
 
     )
